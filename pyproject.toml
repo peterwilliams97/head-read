@@ -1,0 +1,28 @@
+[project]
+name = "hardread"
+version = "0.1.0"
+description = "Flag sentences built from constructions linked to human reading difficulty"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "spacy>=3.8,<3.9",
+    # preshed 3.0.14 raises OverflowError in spaCy's Tokenizer._flush_specials on load, blank
+    # English included; 3.0.13 does not.
+    "preshed>=3.0,<3.0.14",
+    "nltk>=3.9",
+    # The model is a wheel on GitHub releases, not on PyPI, so it is pinned by URL. `uv sync`
+    # installs it with everything else; `make setup` adds the WordNet data nltk needs.
+    "en-core-web-trf @ https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl",
+]
+
+[project.scripts]
+hardread = "hardread.hardread:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["hardread"]

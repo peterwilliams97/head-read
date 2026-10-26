@@ -52,6 +52,7 @@ not carry one.
     uv run hard-read --deplen 4 README.md     # a different DependencyLength cut-off
     uv run hard-read --maxwords 40 README.md  # a different DependencyLength sentence-length cut-off
     ./test.sh                                 # all the tests
+    ./demo.sh                                 # --summary on every testdata/*.md
 
 Each output line reads `path:line  SHAPE  sentence`, with the flagged words inside `«»`.
 
@@ -59,3 +60,7 @@ Before it reads the sentences, hard-read drops code blocks, headings, tables and
 paragraph of mostly links split by `·`, `|` or `—`, with no full stop. It puts the word
 `CODE` in place of each inline code span and each URL, and keeps a link's text. A sentence never
 runs across a paragraph break or from one list item into the next.
+
+`testdata/` holds real Markdown essays, and every shape must fire on at least one of them:
+`./test.sh` fails if a shape finds nothing across the whole folder. A new shape needs a file there
+that triggers it.

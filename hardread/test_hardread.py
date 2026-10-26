@@ -50,6 +50,14 @@ class MarkdownTest(unittest.TestCase):
         source = "[a](x) (every field) · [b](y) (the code) · [c](z)\n\nBody text."
         self.assertEqual(texts(source), ["Body text."])
 
+    def test_bold_label_dropped(self):
+        source = "Intro.\n\n1. **Class check (always runs):** Scans every page."
+        first, _, text = hardread.markdown_blocks(source)[1]
+        nlp = spacy.blank("en")
+        nlp.add_pipe("sentencizer")
+        self.assertEqual((first, [s.text for s in nlp(text).sents]), (3, ["Scans every page."]))
+        self.assertEqual(texts("**Note**: the cache is cold."), ["the cache is cold."])
+
     def test_text_blocks(self):
         self.assertEqual(hardread.text_blocks("a b\nc\n\n\nd"), [(1, [0, 4], "a b c"), (5, [0], "d")])
 

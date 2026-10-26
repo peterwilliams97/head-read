@@ -34,6 +34,7 @@ _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _URL = re.compile(r"<https?://[^>]*>|https?://\S+[^\s.,;:)\]]")
 _STRONG = re.compile(r"(\*\*|__)(.+?)\1")
 _EMPHASIS = re.compile(r"(?<!\w)[*_](\S(?:.*?\S)?)[*_](?!\w)")
+_BOLD_LABEL = re.compile(r"^(\*\*|__)(.+?)(:\1|\1:)(\s+|$)")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -103,12 +104,12 @@ def analyze(nlp, path: str, source: str, deplen: float, maxwords: int) -> Report
 
 def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
     """markdown_blocks returns one (first line, line start offsets, text) per paragraph or list
-    item. Fenced code, headings, tables, indented code and `_is_link_list` blocks are dropped;
-    inline code and URLs become `PLACEHOLDER`; a link keeps its text. Code, link and URL
-    substitution runs per source line, before the lines of a block are joined by one space, so
-    inline code broken across two source lines is left as written. Emphasis markers are stripped
-    from the joined block by `_strip_emphasis`, so a span may cross lines; `line_starts` indexes
-    the text spaCy sees."""
+    item. Fenced code, headings, tables, indented code and `_is_link_list` blocks are dropped, as
+    is a `_BOLD_LABEL` opening a paragraph or list item; inline code and URLs become
+    `PLACEHOLDER`; a link keeps its text. Code, link and URL substitution runs per source line,
+    before the lines of a block are joined by one space, so inline code broken across two source
+    lines is left as written. Emphasis markers are stripped from the joined block by
+    `_strip_emphasis`, so a span may cross lines; `line_starts` indexes the text spaCy sees."""
     blocks: list[tuple[int, list[int], str]] = []
     cur: list[tuple[int, str]] = []
     cur_raw: list[str] = []  # `cur`'s lines before `_inline`, for `_is_link_list`
@@ -141,13 +142,14 @@ def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
         item = _LIST_ITEM.match(line)
         if item:
             flush()
-            cur, cur_is_item = [(n, _inline(line[item.end():].strip()))], True
-            cur_raw = [line[item.end():].strip()]
+            body = _BOLD_LABEL.sub("", line[item.end():].strip())
+            cur, cur_raw, cur_is_item = [(n, _inline(body))], [body], True
             continue
         if not cur and raw.startswith(("    ", "\t")):
             continue  # indented code block
-        cur.append((n, _inline(line.strip())))
-        cur_raw.append(line.strip())
+        body = line.strip() if cur else _BOLD_LABEL.sub("", line.strip())
+        cur.append((n, _inline(body)))
+        cur_raw.append(body)
     flush()
     return blocks
 

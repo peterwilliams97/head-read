@@ -63,6 +63,7 @@ class FeatureTest(unittest.TestCase):
         self.flag(features.InanimateSubject, "The docstring promises they are skipped.")
         self.flag(features.InanimateSubject, f"{features.PLACEHOLDER} expects a list.")
         self.clear(features.InanimateSubject, "The engineer who knows the code expects a list.")
+        self.flag(features.InanimateSubject, f"{features.PLACEHOLDER} swallows the error.")
 
     def test_stacked_nouns(self):
         f = self.flag(features.StackedNouns,
@@ -70,6 +71,9 @@ class FeatureTest(unittest.TestCase):
         self.assertEqual(f.span, "Summer park district classes")
         self.clear(features.StackedNouns,
                    "Summer classes are a whole thing in Chicago and people actually do them.")
+
+    def test_stacked_nouns_placeholder_is_not_a_noun(self):
+        self.clear(features.StackedNouns, f"Use the hand list {features.PLACEHOLDER}.")
 
     def test_stacked_nouns_hyphen_is_one_noun(self):
         self.clear(features.StackedNouns,

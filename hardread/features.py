@@ -113,7 +113,8 @@ def DenominalVerb(sent: Span) -> Finding | None:
 def InanimateSubject(sent: Span) -> Finding | None:
     """InanimateSubject flags an inanimate subject on a verb from `ANIMATE_VERBS` — "the docstring
     promises". A relative "that"/"which" is judged by the noun it attaches to, so "the person who
-    knows" is not a hit."""
+    knows" is not a hit; when that noun is `PLACEHOLDER` the clause is skipped, since the code it
+    stands for is not seen. `PLACEHOLDER` as the `nsubj` itself is still inanimate."""
     for tok in sent:
         if tok.dep_ != "nsubj" or tok.head.pos_ != "VERB":
             continue
@@ -123,6 +124,8 @@ def InanimateSubject(sent: Span) -> Finding | None:
         subj = tok
         if tok.lower_ in ("that", "which", "who") and verb.dep_ == "relcl":
             subj = verb.head
+            if subj.text == PLACEHOLDER:
+                continue
         if _is_inanimate(subj):
             span = sent.doc[min(tok.i, verb.i) : max(tok.i, verb.i) + 1]
             return _finding("InanimateSubject", sent, span.text,
@@ -133,11 +136,14 @@ def InanimateSubject(sent: Span) -> Finding | None:
 def StackedNouns(sent: Span) -> Finding | None:
     """StackedNouns flags three or more nouns in one `compound` chain — "summer park district
     classes". Each modifier narrows the next and the reader holds them all until the head noun.
-    Chain members joined by an unspaced hyphen count as one noun, so "word-pair measures" is two."""
+    Chain members joined by an unspaced hyphen count as one noun, so "word-pair measures" is two.
+    `PLACEHOLDER` is not a noun here: "the hand list CODE" is two."""
     for tok in sent:
         if tok.pos_ not in ("NOUN", "PROPN") or tok.dep_ == "compound":
             continue
-        chain = _compound_chain(tok)
+        chain = [t for t in _compound_chain(tok) if t.text != PLACEHOLDER]
+        if not chain:
+            continue
         nouns = len(chain) - _hyphen_joins(chain)
         if nouns >= 3:
             lo, hi = min(t.i for t in chain), max(t.i for t in chain)

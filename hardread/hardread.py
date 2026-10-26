@@ -29,6 +29,7 @@ _LINK_LIST_SEP = re.compile(r"\s*[·|—]\s*")
 _SENTENCE_END = re.compile(r"[.!?](\s|$)")
 
 _INLINE_CODE = re.compile(r"(`+)(.+?)\1")
+_CODE_LINE = re.compile(r"\s*(`+)(?:(?!\1).)+\1\s*")  # fullmatch: a line that is one code span
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
 _LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 _URL = re.compile(r"<https?://[^>]*>|https?://\S+[^\s.,;:)\]]")
@@ -91,7 +92,7 @@ def analyze(nlp, path: str, source: str, deplen: float, maxwords: int) -> Report
         doc.user_data["first_line"] = first_line
         doc.user_data["line_starts"] = line_starts
         for sent in doc.sents:
-            if not sent.text.strip():
+            if not sent.text.strip() or _is_placeholder_only(sent):
                 continue
             report.sentences += 1
             for detect in detectors:
@@ -105,7 +106,8 @@ def analyze(nlp, path: str, source: str, deplen: float, maxwords: int) -> Report
 def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
     """markdown_blocks returns one (first line, line start offsets, text) per paragraph or list
     item. Fenced code, headings, tables, indented code and `_is_link_list` blocks are dropped, as
-    is a `_BOLD_LABEL` opening a paragraph or list item; inline code and URLs become
+    is a paragraph whose every line fullmatches `_CODE_LINE` — the form Google Docs exports a code
+    block in — and a `_BOLD_LABEL` opening a paragraph or list item; inline code and URLs become
     `PLACEHOLDER`; a link keeps its text. Code, link and URL substitution runs per source line,
     before the lines of a block are joined by one space, so inline code broken across two source
     lines is left as written. Emphasis markers are stripped from the joined block by
@@ -118,7 +120,8 @@ def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
 
     def flush() -> None:
         nonlocal cur, cur_raw, cur_is_item
-        if cur and not _is_link_list(" ".join(cur_raw), " ".join(t for _, t in cur)):
+        code = not cur_is_item and all(_CODE_LINE.fullmatch(r) for r in cur_raw)
+        if cur and not code and not _is_link_list(" ".join(cur_raw), " ".join(t for _, t in cur)):
             blocks.append(_strip_emphasis(*_join(cur)))
         cur, cur_raw, cur_is_item = [], [], False
 
@@ -203,6 +206,12 @@ def _inline(text: str) -> str:
     text = _IMAGE.sub("", text)
     text = _LINK.sub(r"\1", text)
     return _URL.sub(PLACEHOLDER, text)
+
+
+def _is_placeholder_only(sent) -> bool:
+    """_is_placeholder_only reports a sentence with no word to read: every token is `PLACEHOLDER`,
+    punctuation or space, so the detectors would only be judging code they cannot see."""
+    return all(t.text == PLACEHOLDER or t.is_punct or t.is_space for t in sent)
 
 
 def _is_link_list(raw: str, text: str) -> bool:

@@ -58,6 +58,16 @@ class MarkdownTest(unittest.TestCase):
         self.assertEqual((first, [s.text for s in nlp(text).sents]), (3, ["Scans every page."]))
         self.assertEqual(texts("**Note**: the cache is cold."), ["the cache is cold."])
 
+    def test_code_line_paragraph_dropped(self):
+        source = "Run this:\n\n`x := 1`\n``y := `z` ``\n\nThen `x` is set.\n\n- `--json`"
+        self.assertEqual(texts(source), ["Run this:", "Then CODE is set.", "CODE"])
+
+    def test_placeholder_only_sentence_dropped(self):
+        nlp = spacy.blank("en")
+        nlp.add_pipe("sentencizer")
+        report = hardread.analyze(nlp, "x.md", "See `a`. `b`, `c`. Done.", 3.5, 30)
+        self.assertEqual(report.sentences, 2)
+
     def test_text_blocks(self):
         self.assertEqual(hardread.text_blocks("a b\nc\n\n\nd"), [(1, [0, 4], "a b c"), (5, [0], "d")])
 

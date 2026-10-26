@@ -34,9 +34,9 @@ Each example sentence comes from the paper's Table 2.
   a thing.
 - **StackedNouns.** Three or more nouns in a row, each describing the next. *"Summer park district
   classes are a whole thing in Chicago and people actually do them."*
-- **DependencyLength.** On average, words sit far from the word they attach to. hardread measures
-  that distance in words, skipping punctuation, and flags the sentence when the average is over 3.5
-  or the sentence is longer than 30 words.
+- **DependencyLength.** On average, words sit far from the word that they attach to. hardread
+  measures that distance in words, skipping punctuation, and flags the sentence when the average is
+  over 3.5 or the sentence is longer than 30 words.
   *"Has the building had water, mold, structural, or insurance claims?"*
 
 The paper also uses two word-pair measures, unattested word pairs and trigram surprisal. hardread

@@ -1,12 +1,15 @@
 """test_hardread.py pins the Markdown handling in hardread.py: what is dropped, what becomes the
 placeholder, that no block crosses a paragraph or list-item break, and that every block keeps the
-source line it started on. No spaCy model is loaded here, so these run in milliseconds.
+source line it started on. No trained spaCy model is loaded here — a blank English pipeline with
+a sentencizer stands in where a test needs sentences — so these run in milliseconds.
 """
 
 import unittest
 
+import spacy
+
 from hardread import hardread
-from hardread.features import Finding
+from hardread.features import Finding, sentence_line
 
 
 class MarkdownTest(unittest.TestCase):
@@ -26,6 +29,19 @@ class MarkdownTest(unittest.TestCase):
         first, starts, text = hardread.markdown_blocks("See `a very long span` here\nand there.")[0]
         self.assertEqual((first, starts), (1, [0, 14]))
         self.assertEqual(text[starts[1]:], "and there.")
+
+    def test_emphasis_across_lines(self):
+        source = 'He wrote *"this goes\nover a line"* once. Then\nhe stopped.'
+        first, starts, text = hardread.markdown_blocks(source)[0]
+        self.assertEqual(text, 'He wrote "this goes over a line" once. Then he stopped.')
+        self.assertEqual((first, text[starts[1]:starts[2]], text[starts[2]:]),
+                         (1, 'over a line" once. Then ', "he stopped."))
+        nlp = spacy.blank("en")
+        nlp.add_pipe("sentencizer")
+        doc = nlp(text)
+        doc.user_data["first_line"], doc.user_data["line_starts"] = first, starts
+        self.assertEqual([(s.text, sentence_line(s)) for s in doc.sents],
+                         [('He wrote "this goes over a line" once.', 1), ("Then he stopped.", 2)])
 
     def test_setext_heading_dropped(self):
         self.assertEqual(texts("Title\n=====\n\nBody text."), ["Body text."])

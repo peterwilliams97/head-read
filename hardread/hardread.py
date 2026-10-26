@@ -59,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = analyze(nlp, args.path, source, args.deplen)
     except LookupError as e:
-        print(f"hardread: WordNet data missing; run `make setup`.\n{e}", file=sys.stderr)
+        print(f"hardread: NLTK data missing; run `make setup`.\n{e}", file=sys.stderr)
         return 2
 
     if args.json:
@@ -100,9 +100,10 @@ def analyze(nlp, path: str, source: str, deplen: float) -> Report:
 def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
     """markdown_blocks returns one (first line, line start offsets, text) per paragraph or list
     item. Fenced code, headings, tables and indented code are dropped; inline code and URLs become
-    `PLACEHOLDER`; a link keeps its text. Substitution runs per source line, before the lines of a
-    block are joined by one space, so `line_starts` indexes the text spaCy sees — and inline code
-    or emphasis broken across two source lines is left as written."""
+    `PLACEHOLDER`; a link keeps its text. Code, link and URL substitution runs per source line,
+    before the lines of a block are joined by one space, so inline code broken across two source
+    lines is left as written. Emphasis markers are stripped from the joined block by
+    `_strip_emphasis`, so a span may cross lines; `line_starts` indexes the text spaCy sees."""
     blocks: list[tuple[int, list[int], str]] = []
     cur: list[tuple[int, str]] = []
     cur_is_item = False
@@ -111,7 +112,7 @@ def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
     def flush() -> None:
         nonlocal cur, cur_is_item
         if cur:
-            blocks.append(_join(cur))
+            blocks.append(_strip_emphasis(*_join(cur)))
         cur, cur_is_item = [], False
 
     for n, raw in enumerate(source.splitlines(), start=1):
@@ -191,9 +192,22 @@ def _inline(text: str) -> str:
     text = _INLINE_CODE.sub(PLACEHOLDER, text)
     text = _IMAGE.sub("", text)
     text = _LINK.sub(r"\1", text)
-    text = _URL.sub(PLACEHOLDER, text)
-    text = _STRONG.sub(r"\2", text)
-    return _EMPHASIS.sub(r"\1", text)
+    return _URL.sub(PLACEHOLDER, text)
+
+
+def _strip_emphasis(first_line: int, starts: list[int], text: str) -> tuple[int, list[int], str]:
+    """_strip_emphasis deletes the `_STRONG` then `_EMPHASIS` delimiters from a joined block and
+    shifts each line start left by the delimiter characters deleted before it."""
+    for pattern, group in ((_STRONG, 2), (_EMPHASIS, 1)):
+        cut: list[tuple[int, int]] = []
+        for m in pattern.finditer(text):
+            cut += [(m.start(), m.start(group)), (m.end(group), m.end())]
+        if not cut:
+            continue
+        text = "".join(text[b:e] for b, e in zip([0] + [e for _, e in cut],
+                                                 [b for b, _ in cut] + [len(text)]))
+        starts = [s - sum(min(e, s) - b for b, e in cut if b < s) for s in starts]
+    return first_line, starts, text
 
 
 def _load_model():

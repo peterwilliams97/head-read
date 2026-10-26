@@ -9,13 +9,13 @@ It is a report, not a test. It always exits 0.
 
 ## Where things are
 
-| File | What it does |
-|---|---|
-| `hardread/features.py` | One function per shape. Each looks at one sentence and returns a `Finding` or nothing. |
-| `hardread/hardread.py` | The command. Strips the Markdown, splits sentences with spaCy, runs every function, prints. |
+| File                        | What it does  |
+|-----------------------------|---------------|
+| `hardread/features.py`      | One function per shape. Each looks at one sentence and returns a `Finding` or nothing. |
+| `hardread/hardread.py`      | The command. Strips the Markdown, splits sentences with spaCy, runs every function, prints. |
 | `hardread/test_features.py` | For each shape, one sentence that must be flagged and one that must not. |
 | `hardread/test_hardread.py` | Checks the Markdown stripping and the line numbers. |
-| `test.sh` | Runs everything. Exit 0 means all passed. |
+| `test.sh`                   | Runs everything. Exit 0 means all passed. |
 
 ## The five shapes
 
@@ -24,10 +24,10 @@ Each example sentence comes from the paper's Table 2.
 - **ORCNoRelativizer.** A noun is followed by a clause about it, with its own subject and no
   "that", "which" or "who" to mark where the clause starts. *"I am writing to share my thoughts on
   the cell phone policy you are considering."*
-- **DenominalVerb.** A noun is used as a verb. *"This process mirrors real-world challenges much
-  more closely than a packet of predefined questions."* hardread misses this one: WordNet lists
-  "mirror" as a verb as well. It flags a verb only when WordNet has no verb meaning for the word, or
-  when the word is in the hand list `DENOMINAL_SEEDS` ("calendar", "footnote", "gate" …).
+- **DenominalVerb.** hardread flags a noun used as a verb only when that verb use is rare in
+  English, as in *"calendar it"*. Rare means the Brown corpus has the word at least 5 times as a
+  noun and never as a verb, or it is in the hand list `DENOMINAL_SEEDS`. The paper's Table 2
+  examples ("mirrors", "cushions") are ordinary verbs and are not flagged.
 - **InanimateSubject.** A thing that cannot think or eat is the subject of a verb that needs
   something that can, such as "ask", "want" or "promise". *"A song doesn't ask you to turn
   melancholy into a calendar item."* The verbs are listed in `ANIMATE_VERBS`. Inline code counts as
@@ -44,7 +44,7 @@ not carry one.
 
 ## Running it
 
-    make setup                                # installs the venv, en_core_web_trf and WordNet
+    make setup                                # installs the venv, en_core_web_trf, WordNet and Brown
     uv run hardread README.md                 # one line per finding
     uv run hardread --summary README.md       # adds a count per shape and a rate per 100 sentences
     uv run hardread --json README.md          # the whole report as JSON

@@ -28,10 +28,29 @@ class FeatureTest(unittest.TestCase):
         self.assertEqual(f.span, "calendar")
         self.clear(features.DenominalVerb, "We should schedule the review for Friday.")
 
-    def test_denominal_verb_wordnet(self):
+    def test_denominal_verb_brown(self):
         f = self.flag(features.DenominalVerb, "Let me architect the system before lunch.")
-        self.assertIn("no verb senses", f.note)
+        self.assertIn("a noun 30 times and a verb 0 times in Brown", f.note)
         self.clear(features.DenominalVerb, "Let me design the system before lunch.")
+
+    def test_denominal_verb_rare_verbs(self):
+        for text, word in (("We should calendar it for Friday.", "calendar"),
+                           ("Please footnote it before you send the draft.", "footnote"),
+                           ("Let's whiteboard the plan after lunch.", "whiteboard")):
+            with self.subTest(word=word):
+                self.assertEqual(self.flag(features.DenominalVerb, text).span, word)
+
+    def test_denominal_verb_common_verbs(self):
+        # "mirrors" is the paper's Table 2 sentence: an ordinary verb, so not a hit.
+        for text in ("The program exits when the input ends.",
+                     "The linter flags unused imports.",
+                     "We listed the files in the report.",
+                     "This process mirrors real-world challenges much more closely than a packet of "
+                     "predefined questions.",
+                     "We run the tests every night.", "We work on the parser every night.",
+                     "We use the parser every night."):
+            with self.subTest(text=text):
+                self.clear(features.DenominalVerb, text)
 
     def test_inanimate_subject(self):
         f = self.flag(features.InanimateSubject,
@@ -51,6 +70,10 @@ class FeatureTest(unittest.TestCase):
         self.assertEqual(f.span, "Summer park district classes")
         self.clear(features.StackedNouns,
                    "Summer classes are a whole thing in Chicago and people actually do them.")
+
+    def test_stacked_nouns_hyphen_is_one_noun(self):
+        self.clear(features.StackedNouns,
+                   "The paper also uses two word-pair measures, unattested word pairs and trigram surprisal.")
 
     def test_dependency_length(self):
         f = self.flag(features.DependencyLength,

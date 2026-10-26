@@ -46,6 +46,10 @@ class MarkdownTest(unittest.TestCase):
     def test_setext_heading_dropped(self):
         self.assertEqual(texts("Title\n=====\n\nBody text."), ["Body text."])
 
+    def test_link_list_dropped(self):
+        source = "[a](x) (every field) · [b](y) (the code) · [c](z)\n\nBody text."
+        self.assertEqual(texts(source), ["Body text."])
+
     def test_text_blocks(self):
         self.assertEqual(hardread.text_blocks("a b\nc\n\n\nd"), [(1, [0, 4], "a b c"), (5, [0], "d")])
 

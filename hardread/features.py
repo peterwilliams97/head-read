@@ -56,6 +56,9 @@ ANIMATE_VERBS = frozenset({
     "suffer", "enjoy",
 })
 
+# MAX_WORDS is the length past which `DependencyLength` flags a sentence whatever its mean arc.
+MAX_WORDS = 30
+
 # PLACEHOLDER is what hardread.py substitutes for inline code and URLs.
 PLACEHOLDER = "CODE"
 
@@ -143,19 +146,25 @@ def StackedNouns(sent: Span) -> Finding | None:
     return None
 
 
-def DependencyLength(sent: Span, threshold: float = 3.0) -> Finding | None:
+def DependencyLength(
+    sent: Span,
+    threshold: float = 3.5,
+    max_words: int = MAX_WORDS,
+) -> Finding | None:
     """DependencyLength flags a sentence whose mean distance from word to head, in words, exceeds
-    `threshold`. Punctuation arcs and the root are excluded, as the paper does."""
+    `threshold`, or that has more than `max_words` words. Punctuation arcs and the root are excluded
+    from the mean, as the paper does; punctuation and `PLACEHOLDER` are not counted as words."""
     arcs = [abs(t.i - t.head.i) for t in sent
             if t.dep_ != "ROOT" and not t.is_punct and not t.is_space]
-    if not arcs:
-        return None
-    mean = sum(arcs) / len(arcs)
-    if mean <= threshold:
-        return None
-    words = sum(1 for t in sent if not t.is_punct and not t.is_space)
-    return _finding("DependencyLength", sent, sent.text,
-                    f"mean arc {mean:.2f} > {threshold}; sentence {words} words")
+    words = sum(1 for t in sent if not t.is_punct and not t.is_space and t.text != PLACEHOLDER)
+    mean = sum(arcs) / len(arcs) if arcs else 0.0
+    if mean > threshold:
+        return _finding("DependencyLength", sent, sent.text,
+                        f"mean arc {mean:.2f} > {threshold}; sentence {words} words")
+    if words > max_words:
+        return _finding("DependencyLength", sent, sent.text,
+                        f"sentence {words} words > {max_words}; mean arc {mean:.2f}")
+    return None
 
 
 FEATURES = (ORCNoRelativizer, DenominalVerb, InanimateSubject, StackedNouns, DependencyLength)

@@ -35,7 +35,8 @@ Each example sentence comes from the paper's Table 2.
 - **StackedNouns.** Three or more nouns in a row, each describing the next. *"Summer park district
   classes are a whole thing in Chicago and people actually do them."*
 - **DependencyLength.** On average, words sit far from the word they attach to. hardread measures
-  that distance in words, skipping punctuation, and flags the sentence when the average is over 3.0.
+  that distance in words, skipping punctuation, and flags the sentence when the average is over 3.5
+  or the sentence is longer than 30 words.
   *"Has the building had water, mold, structural, or insurance claims?"*
 
 The paper also uses two word-pair measures, unattested word pairs and trigram surprisal. hardread
@@ -49,10 +50,12 @@ not carry one.
     uv run hardread --summary README.md       # adds a count per shape and a rate per 100 sentences
     uv run hardread --json README.md          # the whole report as JSON
     uv run hardread --deplen 4 README.md      # a different DependencyLength cut-off
+    uv run hardread --maxwords 40 README.md   # a different DependencyLength sentence-length cut-off
     ./test.sh                                 # all the tests
 
 Each output line reads `path:line  SHAPE  sentence`, with the flagged words inside `«»`.
 
-Before it reads the sentences, hardread drops code blocks, headings and tables. It puts the word
+Before it reads the sentences, hardread drops code blocks, headings, tables and link lists — a
+paragraph of mostly links split by `·`, `|` or `—`, with no full stop. It puts the word
 `CODE` in place of each inline code span and each URL, and keeps a link's text. A sentence never
 runs across a paragraph break or from one list item into the next.

@@ -76,10 +76,19 @@ class FeatureTest(unittest.TestCase):
                    "The paper also uses two word-pair measures, unattested word pairs and trigram surprisal.")
 
     def test_dependency_length(self):
-        f = self.flag(features.DependencyLength,
-                      "Has the building had water, mold, structural, or insurance claims?")
+        # The paper's example averages 3.44 words per arc: flagged at 3.0, under the 3.5 default.
+        s = "Has the building had water, mold, structural, or insurance claims?"
+        f = features.DependencyLength(self.sent(s), threshold=3.0)
+        self.assertIsNotNone(f, f"DependencyLength missed {s!r} at threshold 3.0")
         self.assertIn("sentence 10 words", f.note)
         self.clear(features.DependencyLength, "The cat sat on the mat.")
+
+    def test_dependency_length_max_words(self):
+        long = ("We ran the tests on the parser and the linter every night for a week, and then we "
+                "read the logs, wrote the notes, and sent them to the team before the next release.")
+        f = self.flag(features.DependencyLength, long)
+        self.assertIn(f"words > {features.MAX_WORDS}", f.note)
+        self.assertIsNone(features.DependencyLength(self.sent(long), max_words=100))
 
     def test_dependency_length_threshold(self):
         s = "Has the building had water, mold, structural, or insurance claims?"

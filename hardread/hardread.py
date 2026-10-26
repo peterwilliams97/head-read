@@ -25,6 +25,8 @@ _THEMATIC_BREAK = re.compile(r"^\s{0,3}([-*_])(\s*\1){2,}\s*$")
 _LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
 _BLOCKQUOTE = re.compile(r"^\s*(>\s?)+")
 _TABLE_ROW = re.compile(r"^\s*\|")
+_LINK_LIST_SEP = re.compile(r"\s*[·|—]\s*")
+_SENTENCE_END = re.compile(r"[.!?](\s|$)")
 
 _INLINE_CODE = re.compile(r"(`+)(.+?)\1")
 _IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
@@ -42,8 +44,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", action="store_true", help="print the Report as JSON")
     ap.add_argument("--summary", action="store_true",
                     help="after the findings, print a count per feature and findings per 100 sentences")
-    ap.add_argument("--deplen", type=float, default=3.0,
-                    help="DependencyLength threshold, mean arc length in words (default 3.0)")
+    ap.add_argument("--deplen", type=float, default=3.5,
+                    help="DependencyLength threshold, mean arc length in words (default 3.5)")
+    ap.add_argument("--maxwords", type=int, default=features.MAX_WORDS,
+                    help=f"DependencyLength also flags sentences over this many words (default {features.MAX_WORDS})")
     args = ap.parse_args(argv)
 
     path = Path(args.path)
@@ -57,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     if nlp is None:
         return 2
     try:
-        report = analyze(nlp, args.path, source, args.deplen)
+        report = analyze(nlp, args.path, source, args.deplen, args.maxwords)
     except LookupError as e:
         print(f"hardread: NLTK data missing; run `make setup`.\n{e}", file=sys.stderr)
         return 2
@@ -72,12 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def analyze(nlp, path: str, source: str, deplen: float) -> Report:
+def analyze(nlp, path: str, source: str, deplen: float, maxwords: int) -> Report:
     """analyze parses each prose block as its own Doc, so spaCy never sees two blocks at once and a
     sentence cannot cross a paragraph or list-item break."""
     markdown = Path(path).suffix.lower() in (".md", ".markdown")
     blocks = markdown_blocks(source) if markdown else text_blocks(source)
-    detectors = [functools.partial(features.DependencyLength, threshold=deplen)
+    detectors = [functools.partial(features.DependencyLength, threshold=deplen, max_words=maxwords)
                  if f is features.DependencyLength else f for f in features.FEATURES]
 
     report = Report(path=path)
@@ -99,21 +103,23 @@ def analyze(nlp, path: str, source: str, deplen: float) -> Report:
 
 def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
     """markdown_blocks returns one (first line, line start offsets, text) per paragraph or list
-    item. Fenced code, headings, tables and indented code are dropped; inline code and URLs become
-    `PLACEHOLDER`; a link keeps its text. Code, link and URL substitution runs per source line,
-    before the lines of a block are joined by one space, so inline code broken across two source
-    lines is left as written. Emphasis markers are stripped from the joined block by
-    `_strip_emphasis`, so a span may cross lines; `line_starts` indexes the text spaCy sees."""
+    item. Fenced code, headings, tables, indented code and `_is_link_list` blocks are dropped;
+    inline code and URLs become `PLACEHOLDER`; a link keeps its text. Code, link and URL
+    substitution runs per source line, before the lines of a block are joined by one space, so
+    inline code broken across two source lines is left as written. Emphasis markers are stripped
+    from the joined block by `_strip_emphasis`, so a span may cross lines; `line_starts` indexes
+    the text spaCy sees."""
     blocks: list[tuple[int, list[int], str]] = []
     cur: list[tuple[int, str]] = []
+    cur_raw: list[str] = []  # `cur`'s lines before `_inline`, for `_is_link_list`
     cur_is_item = False
     in_fence = False
 
     def flush() -> None:
-        nonlocal cur, cur_is_item
-        if cur:
+        nonlocal cur, cur_raw, cur_is_item
+        if cur and not _is_link_list(" ".join(cur_raw), " ".join(t for _, t in cur)):
             blocks.append(_strip_emphasis(*_join(cur)))
-        cur, cur_is_item = [], False
+        cur, cur_raw, cur_is_item = [], [], False
 
     for n, raw in enumerate(source.splitlines(), start=1):
         if _FENCE.match(raw):
@@ -126,7 +132,7 @@ def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
             flush()
             continue
         if _SETEXT_UNDERLINE.match(raw) and cur and not cur_is_item:
-            cur, cur_is_item = [], False  # the paragraph above was a setext heading
+            cur, cur_raw, cur_is_item = [], [], False  # the paragraph above was a setext heading
             continue
         if _THEMATIC_BREAK.match(raw) or _SETEXT_UNDERLINE.match(raw):
             flush()
@@ -136,10 +142,12 @@ def markdown_blocks(source: str) -> list[tuple[int, list[int], str]]:
         if item:
             flush()
             cur, cur_is_item = [(n, _inline(line[item.end():].strip()))], True
+            cur_raw = [line[item.end():].strip()]
             continue
         if not cur and raw.startswith(("    ", "\t")):
             continue  # indented code block
         cur.append((n, _inline(line.strip())))
+        cur_raw.append(line.strip())
     flush()
     return blocks
 
@@ -193,6 +201,17 @@ def _inline(text: str) -> str:
     text = _IMAGE.sub("", text)
     text = _LINK.sub(r"\1", text)
     return _URL.sub(PLACEHOLDER, text)
+
+
+def _is_link_list(raw: str, text: str) -> bool:
+    """_is_link_list reports a navigation line rather than prose: `text`, the block after `_inline`,
+    has no sentence-ending punctuation, and `raw` splits on `_LINK_LIST_SEP` into two or more
+    segments of which more than half hold a link."""
+    if _SENTENCE_END.search(text):
+        return False
+    segments = _LINK_LIST_SEP.split(raw)
+    linked = sum(1 for seg in segments if _LINK.search(seg))
+    return len(segments) >= 2 and 2 * linked > len(segments)
 
 
 def _strip_emphasis(first_line: int, starts: list[int], text: str) -> tuple[int, list[int], str]:

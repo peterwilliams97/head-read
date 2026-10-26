@@ -1,5 +1,5 @@
 [project]
-name = "hardread"
+name = "hard-read"
 version = "0.1.0"
 description = "Flag sentences built from constructions linked to human reading difficulty"
 requires-python = ">=3.13,<3.14"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-hardread = "hardread.hardread:main"
+hard-read = "hardread.hardread:main"
 
 [build-system]
 requires = ["hatchling"]

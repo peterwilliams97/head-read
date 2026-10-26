@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test.sh is the gate: exit 0 means the change is ready to commit. It byte-compiles the package,
 # runs every unittest module and checks the run covered every test method the sources define, then
-# runs hardread on its own README and fails if that parsed zero sentences. Unfinished-work marker
+# runs hard-read on its own README and fails if that parsed zero sentences. Unfinished-work marker
 # sites are listed at the end and never fail the run.
 #
 # The "package without tests" check from ~/CLAUDE.md is dropped: there is one package, and it has
@@ -23,8 +23,8 @@ if [ "${ran:-0}" -eq 0 ] || [ "$ran" -ne "$want" ]; then
 	exit 1
 fi
 
-echo "== hardread on README.md"
-json=$(uv run --no-sync hardread --json README.md)
+echo "== hard-read on README.md"
+json=$(uv run --no-sync hard-read --json README.md)
 sentences=$(echo "$json" | uv run --no-sync python -c 'import json,sys; print(json.load(sys.stdin)["sentences"])')
 echo "README.md: $sentences sentences"
 if [ "$sentences" -eq 0 ]; then

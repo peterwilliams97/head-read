@@ -39,7 +39,7 @@ _BOLD_LABEL = re.compile(r"^(\*\*|__)(.+?)(:\1|\1:)(\s+|$)")
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        prog="hardread",
+        prog="hard-read",
         description="Flag sentences built from constructions linked to reading difficulty.")
     ap.add_argument("path", help="Markdown (.md) or plain-text file")
     ap.add_argument("--json", action="store_true", help="print the Report as JSON")
@@ -55,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         source = path.read_text(encoding="utf-8")
     except OSError as e:
-        print(f"hardread: {e}", file=sys.stderr)
+        print(f"hard-read: {e}", file=sys.stderr)
         return 2
 
     nlp = _load_model()
@@ -64,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         report = analyze(nlp, args.path, source, args.deplen, args.maxwords)
     except LookupError as e:
-        print(f"hardread: NLTK data missing; run `make setup`.\n{e}", file=sys.stderr)
+        print(f"hard-read: NLTK data missing; run `make setup`.\n{e}", file=sys.stderr)
         return 2
 
     if args.json:
@@ -236,7 +236,7 @@ def _load_model():
         import spacy
         return spacy.load("en_core_web_trf")
     except OSError as e:
-        print(f"hardread: cannot load en_core_web_trf; run `make setup`.\n{e}", file=sys.stderr)
+        print(f"hard-read: cannot load en_core_web_trf; run `make setup`.\n{e}", file=sys.stderr)
         return None
 
 
